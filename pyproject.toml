@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "twogroup-linalg"
+version = "0.1.0"
+description = "Linear algebra utilities for finite two-groups."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "bitgauss @ git+https://github.com/andibau13/bitgauss.git",
+    "numpy",
+]
+authors = [
+    { name = "Andi" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.optional-dependencies]
+flint = ["python-flint"]
+galois = ["galois"]
+dev = [
+    "build",
+    "ipykernel",
+    "pytest",
+    "ruff",
+]
+all = [
+    "galois",
+    "python-flint",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "twogroup_linalg*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
