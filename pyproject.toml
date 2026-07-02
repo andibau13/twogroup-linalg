@@ -40,8 +40,8 @@ all = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*", "twogroup_linalg*"]
+where = ["src"]
+include = ["twogroup_linalg*"]
 
 [tool.ruff]
 line-length = 100
