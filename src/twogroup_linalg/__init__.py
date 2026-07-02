@@ -1,1 +1,1 @@
-from .twogroup_linalg import twogroup_linalg
+from . import twogroup_linalg
