@@ -37,24 +37,6 @@ def startstop2(dim0, dim1, key):
         raise ValueError("hom needs two indices")
     return startstop(dim0, key[0]) + startstop(dim1, key[1])
 
-class mod_matrix:
-    """
-    Matrix A of numbers mod 2^i, stored as a list of binary matrixes A_0, A_1, ..., A_(i-1), such that A = A_0+2A_1+4A_2+...
-    Attributes:
-        matrices: List of binary matrices, stored as bitgauss BitMatrix
-        level: The integer i
-        shape: The shape of the matrix
-    """
-    def __init__(self, shape: tuple[int,int], matrices: list[z2lin.BitMatrix], level: int):
-        self.shape = shape
-        self.matrices = matrices
-        self.level = level
-        for m in matrices:
-            if m.shape != shape:
-                raise ValueError("shape of Bitmatrices needs to match given shape")
-            
-    
-
 # class storing homomorphisms between groups that are products of Z2, Z4, and Z8 factors
 class hom:
     # M: matrix whose entries are the coefficients between pairs of individual Z2, Z4, and Z8 factors

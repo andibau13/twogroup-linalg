@@ -7,7 +7,7 @@ int_kernel = fl.int_kernel
 snf = pa.snf
 int_inv = fl.int_inv
 
-# calculate the kernel of a homomorphism using kernels and smith normal form of integer matrices
+# calculate the kernel of a homomorphism Z_2^dim1[0] x Z_4^dim1[1] x Z_8^dim1[2] -> Z_2^dim0[0] x Z_4^dim0[1] x Z_8^dim0[2] using kernels and smith normal form of integer matrices
 def z248_z248_kernel(self):
     modlist0 = np.array([2]*self.dim0[0]+[4]*self.dim0[1]+[8]*self.dim0[2])
     modlist1 = np.array([2]*self.dim1[0]+[4]*self.dim1[1]+[8]*self.dim1[2])
