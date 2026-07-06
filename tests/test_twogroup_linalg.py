@@ -16,7 +16,7 @@ def test_snf_kernel():
     for i in range(30):
         x = lin.hom.rand_dim_nr(4, 5)
         try:
-            xker = snf.twogroup_kernel_snf(x)
+            xker = kernel_snf.twogroup_kernel_snf(x)
             assert (x@xker).is_zero()
         except:
             pass
