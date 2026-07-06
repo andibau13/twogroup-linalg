@@ -5,6 +5,9 @@ from .z2_helpers import *
 # alternative below
 # import galois_wrappers as z2lin
 
+# numpy dtype used to store hom.M and elem.v. Change to int32 or int64 if using Z_{2^i} for i>8
+int_type = np.uint8
+
 def check_dims_equal(dim0, dim1):
     mindim = min(len(dim0), len(dim1))
     for i in range(mindim):
@@ -54,7 +57,7 @@ class hom:
             raise ValueError("Target dimension not matching (M.shape[0] != sum(dim0))")
         if M.shape[1] != sum(dim1):
             raise ValueError("source dimension not matching (M.shape[1] != sum(dim1))")
-        self.M = np.asarray(M, dtype=np.uint8) # need to change to int32 or int64 if using Z_{2^i} for i>8
+        self.M = np.asarray(M, dtype=int_type)
         self.dim0 = dim0
         self.dim1 = dim1
 
@@ -85,9 +88,9 @@ class hom:
         Returns:
             random hom object between the prescribed 2-groups
         """
-        rand = hom(np.zeros((sum(dim0), sum(dim1)),dtype=int), dim0, dim1)
+        rand = hom(np.zeros((sum(dim0), sum(dim1)), dtype=int_type), dim0, dim1)
         for i in range(min(len(dim0), len(dim1))):
-            rand[i:, i:] += (2**i) * np.random.randint(0,2,size=(sum(dim0[i:]),sum(dim1[i:])))
+            rand[i:, i:] += (2**i) * np.random.randint(0,2,size=(sum(dim0[i:]),sum(dim1[i:])), dtype=int_type)
         return rand
     
     @staticmethod
@@ -112,7 +115,7 @@ class hom:
         Args:
             dim: 2-group on which the identity is returned
         """
-        return hom(np.eye(sum(dim), dtype=int), dim, dim)
+        return hom(np.eye(sum(dim), dtype=int_type), dim, dim)
     
     def zeros(dim0, dim1):
         """
@@ -122,9 +125,8 @@ class hom:
             dim0: target 2-group
             dim1: source 2-group
         """
-        return hom(np.zeros((sum(dim0), sum(dim1)), dtype=int), dim0, dim1)
+        return hom(np.zeros((sum(dim0), sum(dim1)), dtype=int_type), dim0, dim1)
 
-    # the entries of M are defined either mod 2, mod 4, or mod 8. This function standardizes the entries to be between 0 and 2, 0 and 4, or 0 and 8, respectively.
     def reduce_mod(self):
         """
         Coefficients between Z_{2^i} and Z_{2^j} are valued in Z_{2^{min(i,j)}} but stored as uint8 integers. This function reduces the integers to the standard interval [0,...,2^{min(i,j)}-1]
@@ -133,7 +135,6 @@ class hom:
             for j in range(len(self.dim1)):
                 self[i,j] %= 2**(min(i,j)+1)
 
-    # prints the matrix M defining the homomorphism to a string
     def tostring(self):
         """
         Prints hom object as string with horizontal and vertical line dividers between blocks of different i and j for the Z_{2^i} factors
@@ -262,9 +263,6 @@ class hom:
         else:
             return K, (helps, Ks)
         
-    # find some arbitrary solution k to Xk=b
-    # the helper is some data that is collected during the kernel computation for A
-    # the first K is always the identity
     def solve_with_helper(X, b, helper):
         """
         Computes a for k solution of the equation Xk=b
@@ -295,15 +293,12 @@ class hom:
 
         return k
     
-
-    # compute a surjective hom L and an injective hom R such that X=LR
-    # 
     def epi_mono(X):
         """
-        Computes an epi-mono decomposition of the input homomorphism. L.dim1 == R.dim0 represents a 2-group that is isomorphic to both the image and cokernel of X
+        Computes an epi-mono decomposition of the input homomorphism. that is, compute L, R, where L is surjective and R is injective, such that X=LR. L.dim1 == R.dim0 represents a 2-group that is isomorphic to both the image and cokernel of X
 
         Returns:
-            L, R, where L is surjective and R is injective, such that X=LR
+            homomorphisms L, R
         """
         n = X.dim0
         m = X.dim1
@@ -312,8 +307,8 @@ class hom:
         R = hom.zeros([], [])
 
         p_stack = [] # this is how Ri is embedded
-        Y = np.zeros((sum(n), 0),dtype=int)
-        multiple_Y = np.zeros((sum(n), 0),dtype=int)
+        Y = np.zeros((sum(n), 0), dtype=int_type)
+        multiple_Y = np.zeros((sum(n), 0), dtype=int_type)
         # update the current multiples of so-far generators
         # at every step attach current Y, then multiply by two. so after first step its two_y2
         nr_p_bars = []
@@ -364,7 +359,7 @@ class elem:
     def __init__(self, v, dim):
         if v.shape[0] != sum(dim):
             raise ValueError("Dimension of coefficient vector v does not match dim given")
-        self.v = v
+        self.v = np.asarray(v, dtype=int_type)
         self.dim = dim
 
     def __getitem__(self, key):
@@ -399,9 +394,9 @@ class elem:
         Random element of specified 2-group
         """
         tot_dim = sum(dim)
-        rand = elem(np.zeros((tot_dim,), dtype=int), dim)
+        rand = elem(np.zeros((tot_dim,), dtype=int_type), dim)
         for i in range(len(dim)):
-            rand[i] = np.random.randint(0, 2**(i+1), size = (dim[i],))
+            rand[i] = np.random.randint(0, 2**(i+1), size = (dim[i],), dtype=int_type)
         return rand
     
     @staticmethod
@@ -410,7 +405,7 @@ class elem:
         Zero element of specified 2-group
         """
         tot_dim = sum(dim)
-        return elem(np.zeros((tot_dim,), dtype=int), dim)
+        return elem(np.zeros((tot_dim,), dtype=int_type), dim)
     
     def is_zero(self):
         """
