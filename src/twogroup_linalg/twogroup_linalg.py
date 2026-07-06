@@ -19,7 +19,8 @@ def check_dims_equal(dim0, dim1):
         for i, dim in enumerate(rem_dims):
             if dim != 0:
                 raise ValueError(f"Z_(2^{mindim + i+1}) dimensions not matching")
-            
+
+# helper function for get_item/set_item           
 def startstop(dim, key):
     if isinstance(key, int):
         start0 = sum(dim[:key])
@@ -32,36 +33,58 @@ def startstop(dim, key):
         stop0 = start0 + sum(dim[key.start:key.stop])
     return start0, stop0
 
+# helper function for get_item/set_item
 def startstop2(dim0, dim1, key):
     if not (isinstance(key, tuple) and len(key)==2):
         raise ValueError("hom needs two indices")
     return startstop(dim0, key[0]) + startstop(dim1, key[1])
 
-# class storing homomorphisms between groups that are products of Z2, Z4, and Z8 factors
 class hom:
-    # M: matrix whose entries are the coefficients between pairs of individual Z2, Z4, and Z8 factors
-    # dim0: triple (a,b,c) where a is the number of Z2 factors, b the number of Z4 factors, and c the number of Z8 factors of the output
-    # dim1: same for the input of the homomorphism
+    """
+    Represents a homomorphism between finite abelian 2-groups
+    
+    Attributes:
+        M: np.array coefficient matrix
+        dim0: "dimension" describing target 2-group. List of ints, such that the 2-group is Z2^dim0[0] x Z4^dim0[1] x ...
+        dim1: dimension describing source 2-group.
+    """
+
     def __init__(self, M, dim0, dim1):
         if M.shape[0] != sum(dim0):
-            raise ValueError("Dimension of axis 0 of matrix M does not match dim0 given")
+            raise ValueError("Target dimension not matching (M.shape[0] != sum(dim0))")
         if M.shape[1] != sum(dim1):
-            raise ValueError("Dimension of axis 1 of matrix M does not match dim1 given")
-        self.M = M
+            raise ValueError("source dimension not matching (M.shape[1] != sum(dim1))")
+        self.M = np.asarray(M, dtype=np.uint8) # need to change to int32 or int64 if using Z_{2^i} for i>8
         self.dim0 = dim0
         self.dim1 = dim1
 
     def __getitem__(self, key):
+        """
+        X[i,j] accesses the coefficient block mapping between Z_{2^j} -> Z_{2^i}. Also implements simple slicing
+        """
         start0, stop0, start1, stop1 = startstop2(self.dim0, self.dim1, key)
         return self.M[start0:stop0, start1:stop1]
     
     def __setitem__(self, key, value):
+        """
+        X[i,j] accesses the coefficient block mapping between Z_{2^j} -> Z_{2^i}. Also implements simple slicing
+        """
         start0, stop0, start1, stop1 = startstop2(self.dim0, self.dim1, key)
         self.M[start0:stop0, start1:stop1] = value
         
     # generate random homomorphism between specific groups
     @staticmethod
     def rand(dim0, dim1):
+        """
+        Random homomorphism between two abelian 2-groups
+
+        Args:
+            dim0: Target 2-group
+            dim1: Source 2-group
+
+        Returns:
+            random hom object between the prescribed 2-groups
+        """
         rand = hom(np.zeros((sum(dim0), sum(dim1)),dtype=int), dim0, dim1)
         for i in range(min(len(dim0), len(dim1))):
             rand[i:, i:] += (2**i) * np.random.randint(0,2,size=(sum(dim0[i:]),sum(dim1[i:])))
@@ -69,25 +92,52 @@ class hom:
     
     @staticmethod
     def rand_dim(max_dim, nr0dim, nr1dim):
+        """
+        Random homomorphism between random abelian 2-groups
+
+        Args:
+            max_dim: maximal number of copies of any Z_{2^i} factor
+            nr0dim: maximal i of a Z_{2^8} factor for target 2-group
+            nr1dim: maximal i of a Z_{2^8} factor for source 2-group
+        """
         dim0 = np.random.randint(0,max_dim,size=(nr0dim,))
         dim1 = np.random.randint(0,max_dim,size=(nr1dim,))
         return hom.rand(dim0, dim1)
     
     @staticmethod
     def identity(dim):
+        """
+        Identity homomorphism
+
+        Args:
+            dim: 2-group on which the identity is returned
+        """
         return hom(np.eye(sum(dim), dtype=int), dim, dim)
     
     def zeros(dim0, dim1):
+        """
+        Zero homomorphism
+
+        Args:
+            dim0: target 2-group
+            dim1: source 2-group
+        """
         return hom(np.zeros((sum(dim0), sum(dim1)), dtype=int), dim0, dim1)
 
     # the entries of M are defined either mod 2, mod 4, or mod 8. This function standardizes the entries to be between 0 and 2, 0 and 4, or 0 and 8, respectively.
     def reduce_mod(self):
+        """
+        Coefficients between Z_{2^i} and Z_{2^j} are valued in Z_{2^{min(i,j)}} but stored as uint8 integers. This function reduces the integers to the standard interval [0,...,2^{min(i,j)}-1]
+        """
         for i in range(len(self.dim0)):
             for j in range(len(self.dim1)):
                 self[i,j] %= 2**(min(i,j)+1)
 
     # prints the matrix M defining the homomorphism to a string
     def tostring(self):
+        """
+        Prints hom object as string with horizontal and vertical line dividers between blocks of different i and j for the Z_{2^i} factors
+        """
         out_string = ""
         col_widths = []
         for i, di in enumerate(self.dim1):
@@ -102,20 +152,29 @@ class hom:
             out_string += row_separator
         return out_string[:-len(row_separator)]
 
-    # provides a deep copy of M
     def copy(self):
+        """
+        Deep copy
+        """
         return hom(self.M.copy(), self.dim0, self.dim1)
         
-    # multiplies submatrices of the M by factors of 2 and 4, such that it acts like integer matrix multiplication
     def enhanced(self):
+        """
+        If the coefficient of a homomorphism between Z_{2^i} -> Z_{2^j} is "c", then the homomorphism acts by multiplication with c*2^{max(i,j)}. This function returns the matrix with coefficients c*2^{max(i,j)} instead.
+        
+        Returns:
+            The output is a hom object but does **not** represent a homomorphism in the intended way.
+        """
         M_enhance = self.copy()
         for i in range(len(M_enhance.dim0)):
             for j in range(len(M_enhance.dim1)):
                 M_enhance[i,j] *= int(2**max(i-j, 0))
         return M_enhance
 
-    # inverse of enhanced
     def unenhanced(self):
+        """
+        Inverse of enhanced.
+        """
         M_unenhance = self.copy()
         for i in range(len(M_unenhance.dim0)):
             for j in range(len(M_unenhance.dim1)):
@@ -123,8 +182,17 @@ class hom:
         return M_unenhance
     
 
-    # implements composition of homomorphisms, or application of homomorphism to element
     def __matmul__(A, B):
+        """
+        Implements either (1) composition of homomorphisms, or (2) application of homomorphism to element
+
+        Args:
+            A: Hom object
+            B: either (1) Hom object, or (2) Elem object
+
+        Returns:
+            Either (1) Composition AB, or (2) Application A(B)
+        """
         if isinstance(B, hom):
             check_dims_equal(A.dim1, B.dim0)
             AB = hom(A.enhanced().M @ B.enhanced().M, A.dim0, B.dim1)
@@ -141,6 +209,9 @@ class hom:
         return NotImplemented
     
     def __add__(A, B):
+        """
+        Add two homomorphisms, (A+B)(x) = A(x) + B(x).
+        """
         check_dims_equal(A.dim0, B.dim0)
         check_dims_equal(A.dim1, B.dim1)
         ApB = hom(A.M+B.M, A.dim0, A.dim1)
@@ -148,24 +219,33 @@ class hom:
         return ApB
     
     def __sub__(A, B):
+        """
+        Subtract two homomorphisms
+        """
         check_dims_equal(A.dim0, B.dim0)
         check_dims_equal(A.dim1, B.dim1)
         ApB = hom(A.M-B.M, A.dim0, A.dim1)
         ApB.reduce_mod()
         return ApB
     
-    # remove all zero rows
-    # def remove_zero_rows(self):
-    #     non_zero_rows = np.any(self.M, axis=1)
-    #     self.dim0 = (int(non_zero_rows[:self.dim0[0]].sum()), int(non_zero_rows[self.dim0[0]:self.dim0[0]+self.dim0[1]].sum()), int(non_zero_rows[self.dim0[0]+self.dim0[1]:].sum()))
-    #     self.M = self.M[non_zero_rows,:]
-
     def is_zero(self):
+        """
+        Test if homomorphism is zero
+        """
         return np.all(self.M==0)
     
-    # Find the kernel of a finite two-group homomorphism
-    # Input A: z248_hom object
     def kernel(X, return_solve_helper = False):
+        """
+        Compute the kernel isomorphism of a homomorphism
+
+        Args:
+            X: homomorphism
+            return_solve_helper: If True, also computes data that can be used to accelerate finding equations of the form Xa=b (see method solve_with_helper)
+
+        Returns:
+            K: kernel isomorphism: Injective homomorphism such that XK=0
+            If return_solve_helper = True, also returns the helper
+        """
         if return_solve_helper:
             Ks = []
             helps = []
@@ -186,28 +266,45 @@ class hom:
     # the helper is some data that is collected during the kernel computation for A
     # the first K is always the identity
     def solve_with_helper(X, b, helper):
+        """
+        Computes a for k solution of the equation Xk=b
+
+        Args:
+            X: homomorphism
+            b: element of target 2-group
+            helper: this is an object returned from the kernel method if get_solve_helper = True is set.
+                It is a pair (z2_helpers, K).
+                z2_helpers is a list of length len(X.dim0). z2_helpers[i] stores helpers to solve the Z2 linear equation with the coefficient matrix for_L in the i-th iteration of the main loop of the kernel algorithm. The helpers contain the pivot column numbers and the RREF transform, see .z2_helpers.get_solve_helper and .z2_helpers.solve_with_helpers
+                K is a list of length len(X.dim0). K[i] the kernel isomorphism K in the i-th iteration of the main loop of the kernel algorithm. K[0] is always the identity.
+
+        Returns: Element k of source 2-group such that Xk=b, if exists
+
+        Raises: ValueError if no solution exists
+        """
         z2_helpers, K = helper
 
         for_l = b.v % 2
         k = elem.zeros(X.dim1)
         for i in range(len(X.dim0)):
-            l = elem(solve_with_helper(*z2_helpers[i], for_l), K[i].dim1)
+            try:
+                l = elem(solve_with_helper(*z2_helpers[i], for_l), K[i].dim1)
+            except:
+                raise ValueError("2-group linear equation has no solution.")
             k = k + K[i] @ l
             for_l = (b - X @ k).v // int(2**(i+1))
 
-        # k0 = z248_elem(solve_with_helper(*z2_helpers[0], b.v % 2), X.dim1)
-        # half_bmXk0 = (b - X @ k0).v // 2
-        # l1 = z248_elem(solve_with_helper(*z2_helpers[1], half_bmXk0 % 2), K[0].dim1)
-        # k1 = k0 + K[0] @ l1
-        # quarter_bmXk1 = (b - X @ k1).v // 4
-        # l2 = z248_elem(solve_with_helper(*z2_helpers[2], quarter_bmXk1 % 2), K[1].dim1)
-        # k2 = k1 + K[1] @ l2
         return k
     
 
     # compute a surjective hom L and an injective hom R such that X=LR
-    # L.dim1==R.dim0 represents the image of A as an abstract space, or equivalently the cokernel
+    # 
     def epi_mono(X):
+        """
+        Computes an epi-mono decomposition of the input homomorphism. L.dim1 == R.dim0 represents a 2-group that is isomorphic to both the image and cokernel of X
+
+        Returns:
+            L, R, where L is surjective and R is injective, such that X=LR
+        """
         n = X.dim0
         m = X.dim1
 
@@ -256,11 +353,17 @@ class hom:
         return L, R
 
 class elem:
-    # v: vector whose entries are the coefficients
-    # dim: triple (a,b,c) where a is the number of Z2 factors, b the number of Z4 factors, and c the number of Z8 factors of the output
+    """
+    Element of a 2-group
+
+    Attributes:
+        v: coefficient vector
+        dim: 2-group of which elem is an element
+    """
+
     def __init__(self, v, dim):
         if v.shape[0] != sum(dim):
-            raise ValueError("Dimension of axis vector v does not match dim given")
+            raise ValueError("Dimension of coefficient vector v does not match dim given")
         self.v = v
         self.dim = dim
 
@@ -273,6 +376,9 @@ class elem:
         self.v[start:stop] = value
 
     def reduce_mod(self):
+        """
+        Normalizes coefficients in Z_{2^i} block to the standard range [0,...,2^i-1]
+        """
         for i in range(len(self.dim)):
             self[i] %= int(2**(i+1))
 
@@ -289,6 +395,9 @@ class elem:
     
     @staticmethod
     def rand(dim):
+        """
+        Random element of specified 2-group
+        """
         tot_dim = sum(dim)
         rand = elem(np.zeros((tot_dim,), dtype=int), dim)
         for i in range(len(dim)):
@@ -297,20 +406,25 @@ class elem:
     
     @staticmethod
     def zeros(dim):
+        """
+        Zero element of specified 2-group
+        """
         tot_dim = sum(dim)
         return elem(np.zeros((tot_dim,), dtype=int), dim)
     
     def is_zero(self):
+        """
+        Tests if element is zero
+        """
         return np.all(self.v==0)
     
     def tostring(self):
         return " ".join([" ".join(self[j].astype(str).tolist()) + " |" for j in range(len(self.dim))])[:-2]
 
-# Find the kernel of a Z2 x Z4 x Z8 -> Z2 group homomorphism
-# Input A: Integer numpy matrix (binary entries)
-# Input dim1: tuple of the dimensions of the Z2, Z4, and Z8 part of A
-# Returns: z248_hom object corresponding to the kernel isomorphism
-def to_z2_kernel(A, dim1):
+def to_z2_kernel(A: hom, dim1):
+    """
+    Helper function for 2-group kernel isomorphism. Computes the kernel isomorphism of a homomorphism A from a 2-group (specified by dim1) to the group Z_2^i
+    """
     Z, Z_dim = stagger_kernel(A % 2, dim1)
     Z_block = hom(Z, dim1, Z_dim)
     W = []
@@ -326,9 +440,10 @@ def to_z2_kernel(A, dim1):
     return K
 
 
-
-
 def split_list(values, lens):
+    """
+    Helper function for epi-mono decomposition (splits list of pivot column numbers)
+    """
     result = []
     start = 0
     sep = 0
@@ -338,64 +453,3 @@ def split_list(values, lens):
         result.append([x-sep+len for x in values[start:end]])
         start = end
     return result
-
-
-
-    
-
-    Y2 = X[:, m[0]+m[1]:]
-    Z2 = Y2
-    R2, p2, p2_bar = rref_trim_pivs(Z2[n[0]+n[1]:, :] % 2)
-    p22_bar = p2_bar
-
-    Y1 = (Y2 - Z2[:, p2] @ R2)[:, p2_bar]
-    Y1[n[0]+n[1]:, :] //= 2
-    Y1 = np.hstack([X[:, m[0]:m[0]+m[1]], Y1])
-    two_Y2 = np.vstack([np.zeros((n[0], len(p2)),dtype=int), 2*Y2[n[0]:n[0]+n[1], p2], Y2[n[0]+n[1]:, p2]])
-    Z1 = np.hstack([two_Y2, Y1])
-    R1, p1_plus, p1_bar_plus = rref_trim_pivs(Z1[n[0]:, :] % 2)
-    R1 = R1[:, len(p2):]
-    _, p1 = split_list(p1_plus, [len(p2), m[1] + len(p22_bar)])
-    _, p1_bar = split_list(p1_bar_plus, [len(p2), m[1] + len(p22_bar)])
-    p11_bar, p12_bar = split_list(p1_bar, [m[1], len(p22_bar)])
-
-    Y0 = (Y1 - Z1[:, p1_plus] @ R1)[:, p1_bar]
-    Y0[n[0]:, :] //= 2
-    Y0 = np.hstack([X[:, :m[0]], Y0])
-    four_Y2 = np.vstack([np.zeros((n[0]+n[1], len(p2)),dtype=int), Y2[n[0]+n[1]:, p2]])
-    two_Y1 = np.vstack([np.zeros((n[0],len(p1)),dtype=int), Y1[n[0]:, p1]])
-    Z0 = np.hstack([four_Y2, two_Y1, Y0])
-    R0, p0_plus, p0_bar_plus = rref_trim_pivs(Z0 % 2)
-    R0 = R0[:, len(p2)+len(p1):]
-    _, p0 = split_list(p0_plus, [len(p2)+len(p1), m[0]+len(p11_bar)+len(p12_bar)])
-    _, p0_bar = split_list(p0_bar_plus, [len(p2)+len(p1), m[0]+len(p11_bar)+len(p12_bar)])
-    p00_bar, p01_bar, p02_bar = split_list(p0_bar, [m[0], len(p11_bar), len(p12_bar)])
-
-    L = np.hstack([Y0[:, p0], Y1[:, p1], Y2[:, p2]])
-
-    R = np.zeros((len(p0)+len(p1)+len(p2), m[0]+m[1]+m[2]), dtype=int)
-    R[:len(p0), :m[0]] += R0[len(p2)+len(p1):, :m[0]]
-    R[len(p0):len(p0)+len(p1), :m[0]] += R0[len(p2):len(p2)+len(p1), :m[0]]
-    R[len(p0)+len(p1):, :m[0]] += R0[:len(p2), :m[0]]
-
-    R[:len(p0), m[0]:m[0]+m[1]][:, p11_bar] += R0[len(p2)+len(p1):, m[0]:m[0]+len(p11_bar)]
-    R[len(p0):len(p0)+len(p1), m[0]:m[0]+m[1]] += R1[len(p2):len(p2)+len(p1), :m[1]]
-    R[len(p0):len(p0)+len(p1), m[0]:m[0]+m[1]][:, p11_bar] += 2* R0[len(p2):len(p2)+len(p1), m[0]:m[0]+len(p11_bar)]
-    R[len(p0)+len(p1):, m[0]:m[0]+m[1]] += R1[:len(p2), :m[1]]
-    R[len(p0)+len(p1):, m[0]:m[0]+m[1]][:, p11_bar] += 2* R0[:len(p2), m[0]:m[0]+len(p11_bar)]
-    
-    R[:len(p0), m[0]+m[1]:][:, np.array(p22_bar,dtype=int)[p12_bar]] += R0[len(p2)+len(p1):, m[0]+len(p11_bar):]
-    R[len(p0):len(p0)+len(p1), m[0]+m[1]:][:, p22_bar] += R1[len(p2):, m[1]:]
-    R[len(p0):len(p0)+len(p1), m[0]+m[1]:][:, np.array(p22_bar,dtype=int)[p12_bar]] += 2* R0[len(p2):len(p2)+len(p1), m[0]+len(p11_bar):]
-    R[len(p0)+len(p1):, m[0]+m[1]:] += R2
-    R[len(p0)+len(p1):, m[0]+m[1]:][:, p22_bar] += 2* R1[:len(p2), m[1]:]
-    R[len(p0)+len(p1):, m[0]+m[1]:][:, np.array(p22_bar,dtype=int)[p12_bar]] += 4* R0[:len(p2), m[0]+len(p11_bar):]
-
-    img_dim = (len(p0), len(p1), len(p2))
-    L_hom = z248_hom(L, n, img_dim)
-    R_hom = z248_hom(R, img_dim, m)
-    L_hom.reduce_mod()
-    R_hom.reduce_mod()
-
-    return L_hom, R_hom
-
