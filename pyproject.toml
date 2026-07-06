@@ -9,11 +9,11 @@ description = "Linear algebra utilities for finite two-groups."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "bitgauss @ git+https://github.com/andibau13/bitgauss.git",
+    "bitgauss @ git+https://github.com/andibau13/bitgauss.git@6016bc93b134e8ce524f9501f429454181aff81e#subdirectory=pybindings",
     "numpy",
 ]
 authors = [
-    { name = "Andi" },
+    { name = "Andreas Bauer" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -25,27 +25,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
-[project.optional-dependencies]
-flint = ["python-flint"]
-galois = ["galois"]
-dev = [
-    "build",
-    "ipykernel",
-    "pytest",
-    "ruff",
-]
-all = [
-    "galois",
-    "python-flint",
-]
-
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["twogroup_linalg*"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

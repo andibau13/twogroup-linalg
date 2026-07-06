@@ -1,6 +1,6 @@
 import twogroup_linalg as lin
 import numpy as np
-import z248_kernel_snf as snf
+import kernel_snf
 
 def test_kernel():
     """Test if kernel isomorphism indeed lands in the kernel"""
@@ -28,7 +28,7 @@ def test_kernel_dimension():
         x = lin.hom.rand_dim_nr(4, 5)
         xker = x.kernel()
         try:
-            xker_snf = snf.twogroup_kernel_snf(x)
+            xker_snf = kernel_snf.twogroup_kernel_snf(x)
             assert xker.dim1 == xker_snf.dim1
         except:
             pass
