@@ -58,8 +58,8 @@ class hom:
         if M.shape[1] != sum(dim1):
             raise ValueError("source dimension not matching (M.shape[1] != sum(dim1))")
         self.M = np.asarray(M, dtype=int_type)
-        self.dim0 = dim0
-        self.dim1 = dim1
+        self.dim0 = [int(i) for i in dim0]
+        self.dim1 = [int(i) for i in dim1]
 
     def __getitem__(self, key):
         """
@@ -94,18 +94,24 @@ class hom:
         return rand
     
     @staticmethod
-    def rand_dim(max_dim, nr0dim, nr1dim):
+    def rand_dim(max_dim, nr_dim0, nr_dim1):
         """
         Random homomorphism between random abelian 2-groups
 
         Args:
             max_dim: maximal number of copies of any Z_{2^i} factor
-            nr0dim: maximal i of a Z_{2^8} factor for target 2-group
-            nr1dim: maximal i of a Z_{2^8} factor for source 2-group
+            nr_dim0: maximal i of a Z_{2^8} factor for target 2-group
+            nr_dim1: maximal i of a Z_{2^8} factor for source 2-group
         """
-        dim0 = np.random.randint(0,max_dim,size=(nr0dim,))
-        dim1 = np.random.randint(0,max_dim,size=(nr1dim,))
+        dim0 = np.random.randint(0,max_dim,size=(nr_dim0,))
+        dim1 = np.random.randint(0,max_dim,size=(nr_dim1,))
         return hom.rand(dim0, dim1)
+    
+    @staticmethod
+    def rand_dim_nr(max_dim, max_nr_dim):
+        nr_dim0 = np.random.randint(1,max_nr_dim+1)
+        nr_dim1 = np.random.randint(1,max_nr_dim+1)
+        return hom.rand_dim(max_dim, nr_dim0, nr_dim1)
     
     @staticmethod
     def identity(dim):
