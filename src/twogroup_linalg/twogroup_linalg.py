@@ -1,9 +1,7 @@
 import numpy as np
 from bisect import bisect_left
-from . import bitgauss_wrappers as z2lin
 from .z2_helpers import *
-# alternative below
-# import galois_wrappers as z2lin
+
 
 # numpy dtype used to store hom.M and elem.v. Change to int32 or int64 if using Z_{2^i} for i>8
 int_type = np.uint8
@@ -42,7 +40,7 @@ def startstop2(dim0, dim1, key):
         raise ValueError("hom needs two indices")
     return startstop(dim0, key[0]) + startstop(dim1, key[1])
 
-class hom:
+class Hom:
     """
     Represents a homomorphism between finite abelian 2-groups
     
@@ -88,7 +86,7 @@ class hom:
         Returns:
             random hom object between the prescribed 2-groups
         """
-        rand = hom(np.zeros((sum(dim0), sum(dim1)), dtype=int_type), dim0, dim1)
+        rand = Hom(np.zeros((sum(dim0), sum(dim1)), dtype=int_type), dim0, dim1)
         for i in range(min(len(dim0), len(dim1))):
             rand[i:, i:] += (2**i) * np.random.randint(0,2,size=(sum(dim0[i:]),sum(dim1[i:])), dtype=int_type)
         return rand
@@ -105,13 +103,13 @@ class hom:
         """
         dim0 = np.random.randint(0,max_dim,size=(nr_dim0,))
         dim1 = np.random.randint(0,max_dim,size=(nr_dim1,))
-        return hom.rand(dim0, dim1)
+        return Hom.rand(dim0, dim1)
     
     @staticmethod
     def rand_dim_nr(max_dim, max_nr_dim):
         nr_dim0 = np.random.randint(1,max_nr_dim+1)
         nr_dim1 = np.random.randint(1,max_nr_dim+1)
-        return hom.rand_dim(max_dim, nr_dim0, nr_dim1)
+        return Hom.rand_dim(max_dim, nr_dim0, nr_dim1)
     
     @staticmethod
     def identity(dim):
@@ -121,7 +119,7 @@ class hom:
         Args:
             dim: 2-group on which the identity is returned
         """
-        return hom(np.eye(sum(dim), dtype=int_type), dim, dim)
+        return Hom(np.eye(sum(dim), dtype=int_type), dim, dim)
     
     def zeros(dim0, dim1):
         """
@@ -131,7 +129,7 @@ class hom:
             dim0: target 2-group
             dim1: source 2-group
         """
-        return hom(np.zeros((sum(dim0), sum(dim1)), dtype=int_type), dim0, dim1)
+        return Hom(np.zeros((sum(dim0), sum(dim1)), dtype=int_type), dim0, dim1)
 
     def reduce_mod(self):
         """
@@ -163,7 +161,7 @@ class hom:
         """
         Deep copy
         """
-        return hom(self.M.copy(), self.dim0, self.dim1)
+        return Hom(self.M.copy(), self.dim0, self.dim1)
         
     def enhanced(self):
         """
@@ -200,16 +198,16 @@ class hom:
         Returns:
             Either (1) Composition AB, or (2) Application A(B)
         """
-        if isinstance(B, hom):
+        if isinstance(B, Hom):
             check_dims_equal(A.dim1, B.dim0)
-            AB = hom(A.enhanced().M @ B.enhanced().M, A.dim0, B.dim1)
+            AB = Hom(A.enhanced().M @ B.enhanced().M, A.dim0, B.dim1)
             AB = AB.unenhanced()
             AB.reduce_mod()
             return AB
         
-        elif isinstance(B, elem):
+        elif isinstance(B, Elem):
             check_dims_equal(A.dim1, B.dim)
-            AB = elem(A.enhanced().M @ B.v, A.dim0)
+            AB = Elem(A.enhanced().M @ B.v, A.dim0)
             AB.reduce_mod()
             return AB
         
@@ -221,7 +219,7 @@ class hom:
         """
         check_dims_equal(A.dim0, B.dim0)
         check_dims_equal(A.dim1, B.dim1)
-        ApB = hom(A.M+B.M, A.dim0, A.dim1)
+        ApB = Hom(A.M+B.M, A.dim0, A.dim1)
         ApB.reduce_mod()
         return ApB
     
@@ -231,7 +229,7 @@ class hom:
         """
         check_dims_equal(A.dim0, B.dim0)
         check_dims_equal(A.dim1, B.dim1)
-        ApB = hom(A.M-B.M, A.dim0, A.dim1)
+        ApB = Hom(A.M-B.M, A.dim0, A.dim1)
         ApB.reduce_mod()
         return ApB
     
@@ -256,7 +254,7 @@ class hom:
         if return_solve_helper:
             Ks = []
             helps = []
-        K = hom.identity(X.dim1)
+        K = Hom.identity(X.dim1)
         for i in range(len(X.dim0)):
             for_L = ((X @ K).enhanced().M // int(2**i)) % 2
             L = to_z2_kernel(for_L, K.dim1)
@@ -288,10 +286,10 @@ class hom:
         z2_helpers, K = helper
 
         for_l = b.v % 2
-        k = elem.zeros(X.dim1)
+        k = Elem.zeros(X.dim1)
         for i in range(len(X.dim0)):
             try:
-                l = elem(solve_with_helper(*z2_helpers[i], for_l), K[i].dim1)
+                l = Elem(solve_with_helper(*z2_helpers[i], for_l), K[i].dim1)
             except:
                 raise ValueError("2-group linear equation has no solution.")
             k = k + K[i] @ l
@@ -309,8 +307,8 @@ class hom:
         n = X.dim0
         m = X.dim1
 
-        L = hom.zeros(n, [])
-        R = hom.zeros([], [])
+        L = Hom.zeros(n, [])
+        R = Hom.zeros([], [])
 
         p_stack = [] # this is how Ri is embedded
         Y = np.zeros((sum(n), 0), dtype=int_type)
@@ -328,13 +326,13 @@ class hom:
             L.dim1 = [len(p)] + L.dim1
             L.M = np.hstack([Y[:, p], L.M])
 
-            Ri = hom(Ri_plus[:, multiple_Y.shape[1]:], list(reversed(L.dim1)), [m[i]] + nr_p_bars)
+            Ri = Hom(Ri_plus[:, multiple_Y.shape[1]:], list(reversed(L.dim1)), [m[i]] + nr_p_bars)
 
             p_bars = split_list(p_bar, Ri.dim1)
             nr_p_bars = [len(x) for x in p_bars]
             p_stack = [np.arange(m[i], dtype=int)] + p_stack
 
-            R_new = hom.zeros(L.dim1, m[i:])
+            R_new = Hom.zeros(L.dim1, m[i:])
             R_new[1:, 1:] += R.M
             for y in range(len(m)-i):
                 for x in range(len(m)-i):
@@ -351,9 +349,11 @@ class hom:
             assert np.all(Y[sum(n[:i]):] % 2 == 0)
             Y[sum(n[:i]):, :] //= 2
 
+        L.reduce_mod()
+        R.reduce_mod()
         return L, R
 
-class elem:
+class Elem:
     """
     Element of a 2-group
 
@@ -385,12 +385,12 @@ class elem:
 
     def __add__(v,w):
         check_dims_equal(v.dim, w.dim)
-        vpw = elem(v.v + w.v, v.dim)
+        vpw = Elem(v.v + w.v, v.dim)
         vpw.reduce_mod()
         return vpw
     def __sub__(v,w):
         check_dims_equal(v.dim, w.dim)
-        vmw = elem(v.v - w.v, v.dim)
+        vmw = Elem(v.v - w.v, v.dim)
         vmw.reduce_mod()
         return vmw
     
@@ -400,7 +400,7 @@ class elem:
         Random element of specified 2-group
         """
         tot_dim = sum(dim)
-        rand = elem(np.zeros((tot_dim,), dtype=int_type), dim)
+        rand = Elem(np.zeros((tot_dim,), dtype=int_type), dim)
         for i in range(len(dim)):
             rand[i] = np.random.randint(0, 2**(i+1), size = (dim[i],), dtype=int_type)
         return rand
@@ -411,7 +411,7 @@ class elem:
         Zero element of specified 2-group
         """
         tot_dim = sum(dim)
-        return elem(np.zeros((tot_dim,), dtype=int_type), dim)
+        return Elem(np.zeros((tot_dim,), dtype=int_type), dim)
     
     def is_zero(self):
         """
@@ -422,18 +422,18 @@ class elem:
     def tostring(self):
         return " ".join([" ".join(self[j].astype(str).tolist()) + " |" for j in range(len(self.dim))])[:-2]
 
-def to_z2_kernel(A: hom, dim1):
+def to_z2_kernel(A: Hom, dim1):
     """
     Helper function for 2-group kernel isomorphism. Computes the kernel isomorphism of a homomorphism A from a 2-group (specified by dim1) to the group Z_2^i
     """
     Z, Z_dim = stagger_kernel(A % 2, dim1)
-    Z_block = hom(Z, dim1, Z_dim)
+    Z_block = Hom(Z, dim1, Z_dim)
     W = []
     for i in range(1, len(dim1)):
         Zii = Z_block[i, i]
         W.append(image_completion(Zii))
     dim_tot = [Z_dim[i] + W[i].shape[1] for i in range(len(dim1)-1)] + [Z_dim[len(dim1)-1]]
-    K = hom.zeros(dim1, dim_tot)
+    K = Hom.zeros(dim1, dim_tot)
     for i in range(0, len(dim1)):
         K[:, i][:, :Z_dim[i]] = Z_block[:, i]
     for i in range(0, len(dim1)-1):

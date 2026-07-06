@@ -1,9 +1,12 @@
 from . import bitgauss_wrappers as z2lin
+# if for some reason bitgauss installation doesn't work, it can be changed with galois using the line below
+# import galois_wrappers as z2lin
 import numpy as np
 
-# Computes the a Z2 kernel isomorphism K of the matrix A, whose rows are divided into 3 blocks
-# such that K is a 3 x 3 block matrix that is block upper triangular and every diagonal block is injective
 def stagger_kernel(A, dim1):
+    """
+    Computes the a Z2 kernel isomorphism K of the matrix A, whose rows are divided into 3 blocks such that K is a 3 x 3 block matrix that is block upper triangular and every diagonal block is injective
+    """
     A_rref = z2lin.rref(A)
     pivs = get_pivots(A_rref)
     non_pivs = sorted(set(range(0,A.shape[1])) - set(pivs))
