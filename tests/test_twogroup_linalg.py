@@ -2,6 +2,10 @@ import twogroup_linalg as lin
 import numpy as np
 import kernel_snf
 
+def group_dim(dim):
+    """Number of Z_2 generators of the 2-group described by dim (i copies of Z_{2^{i+1}} contribute (i+1) each)"""
+    return sum((i + 1) * d for i, d in enumerate(dim))
+
 def test_kernel():
     """Test if kernel isomorphism indeed lands in the kernel"""
     np.random.seed(345)
@@ -74,3 +78,31 @@ def test_epi_mono():
         assert (L @ R - X).is_zero()
         assert not any(Lker.dim1)
         assert X_coker_dim == X_img_dim
+
+def test_transpose_involution():
+    """Test that the transpose is an involution: (X^T)^T == X (same coefficients, interchanged-then-restored dims)"""
+    np.random.seed(345)
+    for i in range(30):
+        X = lin.Hom.rand_dim_nr(4, 5)
+        Xtt = X.transpose().transpose()
+        assert Xtt.dim0 == X.dim0
+        assert Xtt.dim1 == X.dim1
+        assert np.array_equal(Xtt.M, X.M)
+
+def test_solve_hom():
+    """Test that solve_hom recovers f from K @ f: for injective K and arbitrary L, solving K g = K@L gives back g == L exactly.
+
+    L need not be injective: uniqueness of the solution comes from K being injective, so the recovered g is exactly L.
+    """
+    np.random.seed(345)
+    for i in range(30):
+        X = lin.Hom.rand_dim_nr(4, 5)
+        K, _ = X.epi_mono()                      # K: injective, target T = K.dim1
+        assert not any(K.kernel().dim1)          # K is injective
+        L = lin.Hom.rand(K.dim1, np.random.randint(0, 4, size=(4,)))  # general L into T (possibly non-injective)
+        L.reduce_mod()
+        P = K @ L
+        f = K.solve_hom(P)
+        assert (K @ f - P).is_zero()             # f solves K f = P
+        assert f.dim0 == L.dim0 and f.dim1 == L.dim1
+        assert np.array_equal(f.M, L.M)          # unique solution: f is exactly L

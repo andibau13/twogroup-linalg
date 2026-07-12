@@ -361,10 +361,20 @@ class Hom:
         """
         return Hom(self.M.T.copy(), self.dim1, self.dim0)
 
-    def quotient_image_by_image(K, P, K_solve_helper = None):
-        """Quotient the image of an injective homomorphism K: T -> G by the image of a homomorphism P: S -> G, given the promise im(P) is a subgroup of im(K).
+    def cokernel(self):
+        """Cokernel projection of a homomorphism.
 
-        Works by (1) solving K f = P for f: S -> T column-wise (unique since K is injective), and (2) computing the cokernel of f as the transpose of the kernel of the transpose (kernel and cokernel are exchanged under the self-duality of finite abelian 2-groups).
+        Computed as the transpose of the kernel of the transpose (kernel and cokernel are exchanged under the self-duality of finite abelian 2-groups).
+
+        Returns:
+            The cokernel projection q: G -> G/im(self), a surjective Hom whose kernel is im(self)
+        """
+        return self.transpose().kernel().transpose()
+
+    def solve_hom(K, P, K_solve_helper = None):
+        """Solve K f = P for the homomorphism f: S -> T, given an injective K: T -> G and P: S -> G with im(P) contained in im(K).
+
+        The solution is unique since K is injective. Works column-wise, solving K x = P(gen) for each generator gen of the source of P.
 
         Parameters:
             K: injective Hom T -> G
@@ -372,7 +382,7 @@ class Hom:
             K_solve_helper: optional solve helper for K, as returned by K.kernel(return_solve_helper=True); computed on the fly if not given
 
         Returns:
-            The quotient projection q: T -> Q, a surjective Hom onto the quotient 2-group Q = im(K)/im(P), whose kernel is the preimage of im(P) under K
+            The unique Hom f: S -> T with K f = P
         """
         if K_solve_helper is None:
             _, K_solve_helper = K.kernel(return_solve_helper = True)
@@ -393,7 +403,22 @@ class Hom:
                         assert np.all(x[i] % 2**(i-l) == 0)
                         f[i, l][:, j] = x[i] // 2**(i-l)
 
-        return f.transpose().kernel().transpose()
+        return f
+
+    def quotient_image_by_image(K, P, K_solve_helper = None):
+        """Quotient the image of an injective homomorphism K: T -> G by the image of a homomorphism P: S -> G, given the promise im(P) is a subgroup of im(K).
+
+        Combines solve_hom and cokernel: (1) solve K f = P for f: S -> T (unique since K is injective), then (2) take the cokernel of f.
+
+        Parameters:
+            K: injective Hom T -> G
+            P: Hom S -> G with im(P) contained in im(K)
+            K_solve_helper: optional solve helper for K, as returned by K.kernel(return_solve_helper=True); computed on the fly if not given
+
+        Returns:
+            The quotient projection q: T -> Q, a surjective Hom onto the quotient 2-group Q = im(K)/im(P), whose kernel is the preimage of im(P) under K
+        """
+        return K.solve_hom(P, K_solve_helper).cokernel()
 
 
 class Elem:
