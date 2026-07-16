@@ -254,9 +254,12 @@ class Hom:
         if return_solve_helper:
             Ks = []
             helps = []
-        K = Hom.identity(X.dim1)
+        K = Hom.identity(X.dim1) # unnecessary now with the speedup hack below
         for i in range(len(X.dim0)):
-            for_L = ((X @ K).enhanced().M // int(2**i)) % 2
+            if i == 0: # this is purely for speedup
+                for_L = (X.enhanced().M // int(2**i)) % 2
+            else:
+                for_L = ((X @ K).enhanced().M // int(2**i)) % 2
             L = to_z2_kernel(for_L, K.dim1)
             if return_solve_helper:
                 Ks.append(K)
